@@ -1,4 +1,5 @@
 import type { Env } from "../types/env";
+import { parseFiniteNumber, parseIsoTimestamp } from "../utils/parsing";
 
 export interface RetailResult {
   buyVndLuong: number;
@@ -14,15 +15,6 @@ interface VnappmobRetailPayload {
 
 type RetailBrand = "sjc" | "doji" | "pnj";
 
-function parseFiniteNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string") {
-    const parsed = Number.parseFloat(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return null;
-}
-
 function parseAsOf(record: Record<string, unknown>, fetchedAtIso: string): string {
   const candidates = [
     record.asOf,
@@ -36,14 +28,8 @@ function parseAsOf(record: Record<string, unknown>, fetchedAtIso: string): strin
   ];
 
   for (const candidate of candidates) {
-    if (typeof candidate === "string") {
-      const ms = Date.parse(candidate);
-      if (Number.isFinite(ms)) return new Date(ms).toISOString();
-    }
-    if (typeof candidate === "number" && Number.isFinite(candidate)) {
-      const ms = candidate > 1e12 ? candidate : candidate * 1000;
-      return new Date(ms).toISOString();
-    }
+    const parsed = parseIsoTimestamp(candidate, "");
+    if (parsed) return parsed;
   }
 
   return fetchedAtIso;

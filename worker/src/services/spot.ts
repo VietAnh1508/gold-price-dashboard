@@ -1,3 +1,5 @@
+import { parseIsoTimestamp } from "../utils/parsing";
+
 export interface SpotResult {
   priceUsdOzt: number;
   providerTimestamp: string;
@@ -12,22 +14,6 @@ interface GoldApiSpotResponse {
   updatedAt?: unknown;
   updatedAtReadable?: unknown;
   timestamp?: unknown;
-}
-
-function parseIsoTimestamp(rawTimestamp: unknown, fetchedAtIso: string): string {
-  if (typeof rawTimestamp === "string") {
-    const ms = Date.parse(rawTimestamp);
-    if (Number.isFinite(ms)) {
-      return new Date(ms).toISOString();
-    }
-  }
-
-  if (typeof rawTimestamp === "number" && Number.isFinite(rawTimestamp)) {
-    const ms = rawTimestamp > 1e12 ? rawTimestamp : rawTimestamp * 1000;
-    return new Date(ms).toISOString();
-  }
-
-  return fetchedAtIso;
 }
 
 export async function fetchSpotGold(): Promise<SpotResult> {
