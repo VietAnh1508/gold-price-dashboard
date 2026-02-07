@@ -7,6 +7,7 @@ import type { Env } from "../types/env";
 import { DEFAULT_BRAND, LUONG_GRAMS, OZT_GRAMS, SUPPORTED_BRANDS } from "../utils/constants";
 
 const DEFAULT_QUOTE_TTL_SECONDS = 120;
+const DEFAULT_FX_CACHE_TTL_SECONDS = 60 * 60 * 6;
 const STALE_DATA_TTL_SECONDS = 60 * 60 * 6;
 
 interface SourceOutcome<T> {
@@ -98,19 +99,73 @@ function withFreshMeta(quote: QuoteResponse, ttlSeconds: number): QuoteResponse 
 
 async function fetchWithFallback<T>(
   key: string,
+  ttlSeconds: number,
   fetcher: () => Promise<T>,
 ): Promise<SourceOutcome<T>> {
-  try {
-    const fresh = await fetcher();
-    setMemoryCache(key, fresh, STALE_DATA_TTL_SECONDS);
+  const fresh = getMemoryCache<T>(key);
+  if (fresh) {
     return { status: "ok", data: fresh };
+  }
+
+  try {
+    const fetched = await fetcher();
+    setMemoryCache(key, fetched, ttlSeconds);
+    setMemoryCache(`${key}:stale`, fetched, STALE_DATA_TTL_SECONDS);
+    return { status: "ok", data: fetched };
   } catch {
-    const stale = getMemoryCache<T>(key);
+    const stale = getMemoryCache<T>(`${key}:stale`);
     if (stale) {
       return { status: "stale", data: stale };
     }
     return { status: "error", data: null };
   }
+}
+
+function buildEdgeCacheKey(req: Request, brand: "sjc" | "doji" | "pnj", city?: string): Request {
+  const cacheUrl = new URL(req.url);
+  cacheUrl.search = "";
+  cacheUrl.searchParams.set("retailBrand", brand);
+  if (city && city.trim().length > 0) {
+    cacheUrl.searchParams.set("retailCity", city);
+  }
+  return new Request(cacheUrl.toString(), { method: "GET" });
+}
+
+async function getEdgeCachedQuote(
+  cache: Cache,
+  key: Request,
+  ttlSeconds: number,
+): Promise<CachedQuote | null> {
+  const cachedResponse = await cache.match(key);
+  if (!cachedResponse) return null;
+
+  try {
+    const parsed = (await cachedResponse.json()) as CachedQuote;
+    if (parsed && typeof parsed === "object" && parsed.quote) {
+      return {
+        quote: withFreshMeta(parsed.quote, ttlSeconds),
+      };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+async function setEdgeCachedQuote(
+  cache: Cache,
+  key: Request,
+  cachedQuote: CachedQuote,
+  ttlSeconds: number,
+): Promise<void> {
+  const response = new Response(JSON.stringify(cachedQuote), {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": `public, max-age=0, s-maxage=${ttlSeconds}`,
+    },
+  });
+  await cache.put(key, response);
 }
 
 export async function quoteHandler(req: Request, env: Env): Promise<Response> {
@@ -124,16 +179,25 @@ export async function quoteHandler(req: Request, env: Env): Promise<Response> {
 
   const normalizedBrand = brand as "sjc" | "doji" | "pnj";
   const quoteTtlSeconds = parseTtlSeconds(env.QUOTE_CACHE_TTL_SECONDS, DEFAULT_QUOTE_TTL_SECONDS);
+  const fxCacheTtlSeconds = parseTtlSeconds(env.FX_CACHE_TTL_SECONDS, DEFAULT_FX_CACHE_TTL_SECONDS);
+  const edgeCache = await caches.open("gold-quote-cache");
   const quoteCacheKey = `quote:${normalizedBrand}:${city ?? "-"}`;
   const cachedQuote = getMemoryCache<CachedQuote>(quoteCacheKey);
   if (cachedQuote) {
     return Response.json(withFreshMeta(cachedQuote.quote, quoteTtlSeconds));
   }
 
+  const edgeCacheKey = buildEdgeCacheKey(req, normalizedBrand, city);
+  const edgeCachedQuote = await getEdgeCachedQuote(edgeCache, edgeCacheKey, quoteTtlSeconds);
+  if (edgeCachedQuote) {
+    setMemoryCache(quoteCacheKey, edgeCachedQuote, quoteTtlSeconds);
+    return Response.json(edgeCachedQuote.quote);
+  }
+
   const [spotResult, fxResult, retailResult] = await Promise.all([
-    fetchWithFallback<SpotResult>("spot:latest", () => fetchSpotGold()),
-    fetchWithFallback<FxResult>("fx:latest", () => fetchUsdVndRate(env)),
-    fetchWithFallback<RetailResult>(`retail:${normalizedBrand}:${city ?? "-"}`, () =>
+    fetchWithFallback<SpotResult>("spot:latest", quoteTtlSeconds, () => fetchSpotGold()),
+    fetchWithFallback<FxResult>("fx:latest", fxCacheTtlSeconds, () => fetchUsdVndRate(env)),
+    fetchWithFallback<RetailResult>(`retail:${normalizedBrand}:${city ?? "-"}`, quoteTtlSeconds, () =>
       fetchRetailPrice(env, normalizedBrand, city),
     ),
   ]);
@@ -182,6 +246,7 @@ export async function quoteHandler(req: Request, env: Env): Promise<Response> {
 
   if (!allCriticalMissing) {
     setMemoryCache(quoteCacheKey, { quote }, quoteTtlSeconds);
+    await setEdgeCachedQuote(edgeCache, edgeCacheKey, { quote }, quoteTtlSeconds);
   }
 
   return Response.json(responseBody, { status: allCriticalMissing ? 503 : 200 });

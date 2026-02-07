@@ -8,7 +8,7 @@ This file captures ongoing work derived from `REQUIREMENT.md`. Update the status
 - [x] A3: Fetch VNAppMob retail gold (SJC first) with bearer auth, normalize buy/sell, and expose `asOf`.
 - [x] A4: Manage VNAppMob Bearer token lifecycle via KV/Durable Object with refresh + retry logic.
 - [x] A5: Fetch USD/VND FX rate (primary VNAppMob, fallback allowed) and flag stale data.
-- [ ] A6: Cache upstream calls (spot, retail, FX) per TTL guidance and report `dataFreshnessSeconds`.
+- [x] A6: Cache upstream calls (spot, retail, FX) per TTL guidance and report `dataFreshnessSeconds`.
 - [ ] A7: Instrument logging plus `/api/health` and `/api/debug` endpoints for observability.
 
 ## Epic B – React “Gold Compare Dashboard”
@@ -30,5 +30,6 @@ This file captures ongoing work derived from `REQUIREMENT.md`. Update the status
 - February 7, 2026: A3 implemented in `worker/src/services/retail.ts` (VNAppMob v2 bearer-auth integration at `/api/v2/gold/{brand}`, SJC `buy_1l`/`sell_1l` normalization, city-aware parsing for non-SJC brands, and `asOf` extraction with fetch-time fallback).
 - February 7, 2026: A4 implemented via `worker/src/services/token.ts` (auto token acquisition from VNAppMob `request_api_key` endpoint, KV + in-memory token caching with expiry tracking, and forced refresh on `403 Invalid api_key` with a single retry). `worker/src/services/fx.ts` and `worker/src/services/retail.ts` now use the token manager instead of static bearer secrets.
 - February 7, 2026: A5 implemented in `worker/src/services/fx.ts` (VNAppMob v2 exchange-rate integration via bearer auth, USD record selection from `results`, robust `sell`/`buy_transfer`/`buy_cash`/`buy` rate parsing, and provider timestamp normalization with fetch-time fallback). `quote` already marks `status.fx` as `stale` when cached fallback is used.
+- February 7, 2026: A6 implemented in `worker/src/routes/quote.ts` (final normalized quote cache via in-memory + Cloudflare Cache API, source-level upstream throttling with short TTL for spot/retail and configurable long TTL for FX via `FX_CACHE_TTL_SECONDS`, and `meta.dataFreshnessSeconds` recalculation on cached responses).
 - Validation note: `pnpm -C worker run typecheck` passes as of February 7, 2026.
 - Update this file each sprint slice (e.g., tick boxes, note blockers, add new rows if scope grows).
