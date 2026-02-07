@@ -220,13 +220,12 @@ As a user, I want to open the dashboard and immediately see:
 **UI layout (simple, functional)**
 
 **Top section:**
-- Spot Gold (USD/oz): big number
-- USD/VND rate: small label
-- Last updated: timestamp + “fresh/stale” badge
+- Card 1: Spot Gold (USD/oz): big number + freshness badge + updated seconds
+- Card 2: USD/VND rate
+- Card 3: Computed Spot (VND/lượng): big number
 
 **Middle section:**
-- Computed Spot (VND/lượng): big number
-- Retail (SJC):
+- Retail prices (SJC):
   - Buy
   - Sell
 - Premium vs spot:
