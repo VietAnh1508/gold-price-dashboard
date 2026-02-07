@@ -15,6 +15,7 @@ export interface QuoteResponse {
   };
   fx: {
     provider: string;
+    providerName: string | null;
     pair: "USD/VND";
     rate: number | null;
     providerTimestamp: string | null;

@@ -42,6 +42,7 @@ function createBaseQuote(brand: "sjc" | "doji" | "pnj", ttlSeconds: number): Quo
     },
     fx: {
       provider: "vnappmob",
+      providerName: null,
       pair: "USD/VND",
       rate: null,
       providerTimestamp: null,
@@ -90,6 +91,10 @@ function withFreshMeta(quote: QuoteResponse, ttlSeconds: number): QuoteResponse 
   const nowMs = Date.now();
   return {
     ...quote,
+    fx: {
+      ...quote.fx,
+      providerName: quote.fx.providerName ?? null,
+    },
     meta: {
       serverTime: new Date(nowMs).toISOString(),
       cacheTtlSeconds: ttlSeconds,
@@ -222,6 +227,8 @@ export async function quoteHandler(req: Request, env: Env): Promise<Response> {
     quote.spot.providerTimestamp = spotResult.data.providerTimestamp;
   }
   if (fxResult.data) {
+    quote.fx.provider = `vnappmob:${fxResult.data.provider}`;
+    quote.fx.providerName = fxResult.data.providerName;
     quote.fx.rate = fxResult.data.rate;
     quote.fx.providerTimestamp = fxResult.data.providerTimestamp;
   }
