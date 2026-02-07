@@ -1,5 +1,5 @@
 {
-  "name": "gold-compare-worker",
+  "name": "gold-price-worker",
   "version": "0.1.0",
   "private": true,
   "type": "module",

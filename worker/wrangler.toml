@@ -1,4 +1,4 @@
-name = "gold-compare-service"
+name = "gold-price-service"
 main = "src/index.ts"
 compatibility_date = "2026-02-07"
 

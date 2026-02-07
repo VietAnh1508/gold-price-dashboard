@@ -1,6 +1,6 @@
 # EPIC A - Gold Compare Service (Cloudflare Worker)
 
-This folder contains the backend scaffold for EPIC A from `REQUIREMENT.md`.
+This folder contains the backend scaffold for EPIC A from `../docs/REQUIREMENT.md`.
 
 ## Scope
 - `GET /api/quote`

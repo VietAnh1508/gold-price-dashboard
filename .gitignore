@@ -26,4 +26,4 @@ coverage/
 .env.*
 !.env.example
 
-gold-compare-worker/.dev.vars
+worker/.dev.vars

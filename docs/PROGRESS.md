@@ -25,7 +25,7 @@ This file captures ongoing work derived from `REQUIREMENT.md`. Update the status
 
 ## Notes
 - Last reviewed: February 7, 2026.
-- February 7, 2026: A1 implemented in `gold-compare-worker/src/routes/quote.ts` (normalized contract, in-memory quote caching, per-source stale fallback, computed comparison fields, partial-data `200`, all-critical-missing `503`).
-- February 7, 2026: A2 implemented in `gold-compare-worker/src/services/spot.ts` (`gold-api.com` XAU spot fetch, strict price parsing, provider timestamp normalization, and fallback to Worker fetch time).
-- Validation note: `pnpm -C gold-compare-worker run typecheck` passes as of February 7, 2026.
+- February 7, 2026: A1 implemented in `worker/src/routes/quote.ts` (normalized contract, in-memory quote caching, per-source stale fallback, computed comparison fields, partial-data `200`, all-critical-missing `503`).
+- February 7, 2026: A2 implemented in `worker/src/services/spot.ts` (`gold-api.com` XAU spot fetch, strict price parsing, provider timestamp normalization, and fallback to Worker fetch time).
+- Validation note: `pnpm -C worker run typecheck` passes as of February 7, 2026.
 - Update this file each sprint slice (e.g., tick boxes, note blockers, add new rows if scope grows).
