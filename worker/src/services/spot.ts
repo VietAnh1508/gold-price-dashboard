@@ -1,4 +1,5 @@
 import { parseIsoTimestamp } from "../utils/parsing";
+import { UpstreamServiceError } from "../utils/errors";
 
 export interface SpotResult {
   priceUsdOzt: number;
@@ -18,13 +19,21 @@ interface GoldApiSpotResponse {
 
 export async function fetchSpotGold(): Promise<SpotResult> {
   const fetchedAtIso = new Date().toISOString();
+  const requestUrl = GOLD_API_SPOT_URL;
   const response = await fetch(GOLD_API_SPOT_URL, {
     method: "GET",
     headers: { Accept: "application/json" },
   });
 
   if (!response.ok) {
-    throw new Error(`gold-api spot request failed with status ${response.status}`);
+    const body = (await response.text()).slice(0, 300);
+    throw new UpstreamServiceError("gold-api spot request failed", {
+      service: "gold-api",
+      operation: "fetchSpotGold",
+      url: requestUrl,
+      status: response.status,
+      detail: body || undefined,
+    });
   }
 
   const payload = (await response.json()) as GoldApiSpotResponse;
@@ -36,7 +45,11 @@ export async function fetchSpotGold(): Promise<SpotResult> {
       : Number.NaN;
 
   if (!Number.isFinite(price) || price <= 0) {
-    throw new Error("gold-api spot response missing valid price");
+    throw new UpstreamServiceError("gold-api spot response missing valid price", {
+      service: "gold-api",
+      operation: "fetchSpotGold",
+      url: requestUrl,
+    });
   }
 
   return {

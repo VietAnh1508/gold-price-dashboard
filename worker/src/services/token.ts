@@ -1,5 +1,6 @@
 import type { Env } from "../types/env";
 import { VNAPPMOB_API_BASE_URL } from "../utils/constants";
+import { UpstreamServiceError } from "../utils/errors";
 
 export type VnappmobScope = "gold" | "exchange_rate";
 
@@ -70,7 +71,8 @@ function isInvalidApiKeyResponse(response: Response, bodyText: string): boolean 
 }
 
 async function requestNewToken(scope: VnappmobScope): Promise<string> {
-  const response = await fetch(`${VNAPPMOB_API_BASE_URL}/api/request_api_key?scope=${scope}`, {
+  const requestUrl = `${VNAPPMOB_API_BASE_URL}/api/request_api_key?scope=${scope}`;
+  const response = await fetch(requestUrl, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -78,12 +80,23 @@ async function requestNewToken(scope: VnappmobScope): Promise<string> {
   });
 
   if (!response.ok) {
-    throw new Error(`vnappmob token request failed with status ${response.status}`);
+    const body = (await response.text()).slice(0, 300);
+    throw new UpstreamServiceError("vnappmob token request failed", {
+      service: "vnappmob",
+      operation: "requestNewToken",
+      url: requestUrl,
+      status: response.status,
+      detail: body || undefined,
+    });
   }
 
   const payload = (await response.json()) as { results?: unknown };
   if (typeof payload.results !== "string" || payload.results.trim().length === 0) {
-    throw new Error("vnappmob token response missing token");
+    throw new UpstreamServiceError("vnappmob token response missing token", {
+      service: "vnappmob",
+      operation: "requestNewToken",
+      url: requestUrl,
+    });
   }
 
   return payload.results.trim();

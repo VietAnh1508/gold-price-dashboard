@@ -2,6 +2,7 @@ import type { Env } from "../types/env";
 import { VNAPPMOB_API_BASE_URL } from "../utils/constants";
 import { fetchWithVnappmobToken } from "./token";
 import { parseFiniteNumber, parseIsoTimestamp } from "../utils/parsing";
+import { UpstreamServiceError } from "../utils/errors";
 
 export interface FxResult {
   rate: number;
@@ -54,12 +55,13 @@ function parseUsdVndRate(record: Record<string, unknown>): number | null {
 
 export async function fetchUsdVndRate(env: Env): Promise<FxResult> {
   const fetchedAtIso = new Date().toISOString();
+  const requestUrl = `${VNAPPMOB_API_BASE_URL}${VNAPPMOB_EXCHANGE_RATE_PATH}`;
   const response = await fetchWithVnappmobToken(
     env,
     "exchange_rate",
-    `${VNAPPMOB_API_BASE_URL}${VNAPPMOB_EXCHANGE_RATE_PATH}`,
+    requestUrl,
     {
-    method: "GET",
+      method: "GET",
       headers: {
         Accept: "application/json",
       },
@@ -67,12 +69,23 @@ export async function fetchUsdVndRate(env: Env): Promise<FxResult> {
   );
 
   if (!response.ok) {
-    throw new Error(`vnappmob fx request failed with status ${response.status}`);
+    const body = (await response.text()).slice(0, 300);
+    throw new UpstreamServiceError("vnappmob fx request failed", {
+      service: "vnappmob",
+      operation: "fetchUsdVndRate",
+      url: requestUrl,
+      status: response.status,
+      detail: body || undefined,
+    });
   }
 
   const payload = (await response.json()) as VnappmobExchangeRatePayload;
   if (!Array.isArray(payload.results) || payload.results.length === 0) {
-    throw new Error("vnappmob fx response missing results");
+    throw new UpstreamServiceError("vnappmob fx response missing results", {
+      service: "vnappmob",
+      operation: "fetchUsdVndRate",
+      url: requestUrl,
+    });
   }
 
   const usdRecord = payload.results.find((row) => {
@@ -83,13 +96,21 @@ export async function fetchUsdVndRate(env: Env): Promise<FxResult> {
 
   const firstRecord = usdRecord ?? payload.results[0];
   if (!firstRecord || typeof firstRecord !== "object") {
-    throw new Error("vnappmob fx response missing record");
+    throw new UpstreamServiceError("vnappmob fx response missing record", {
+      service: "vnappmob",
+      operation: "fetchUsdVndRate",
+      url: requestUrl,
+    });
   }
 
   const record = firstRecord as Record<string, unknown>;
   const rate = parseUsdVndRate(record);
   if (rate === null) {
-    throw new Error("vnappmob fx response missing valid USD/VND rate");
+    throw new UpstreamServiceError("vnappmob fx response missing valid USD/VND rate", {
+      service: "vnappmob",
+      operation: "fetchUsdVndRate",
+      url: requestUrl,
+    });
   }
 
   return {

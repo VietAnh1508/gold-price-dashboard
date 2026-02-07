@@ -5,6 +5,7 @@ import { fetchRetailPrice, type RetailResult } from "../services/retail";
 import { fetchSpotGold, type SpotResult } from "../services/spot";
 import type { Env } from "../types/env";
 import { DEFAULT_BRAND, LUONG_GRAMS, OZT_GRAMS, SUPPORTED_BRANDS } from "../utils/constants";
+import { serializeError } from "../utils/errors";
 
 const DEFAULT_QUOTE_TTL_SECONDS = 120;
 const DEFAULT_FX_CACHE_TTL_SECONDS = 60 * 60 * 6;
@@ -98,6 +99,7 @@ function withFreshMeta(quote: QuoteResponse, ttlSeconds: number): QuoteResponse 
 }
 
 async function fetchWithFallback<T>(
+  source: "spot" | "fx" | "retail",
   key: string,
   ttlSeconds: number,
   fetcher: () => Promise<T>,
@@ -112,7 +114,12 @@ async function fetchWithFallback<T>(
     setMemoryCache(key, fetched, ttlSeconds);
     setMemoryCache(`${key}:stale`, fetched, STALE_DATA_TTL_SECONDS);
     return { status: "ok", data: fetched };
-  } catch {
+  } catch (error) {
+    console.error("upstream_fetch_failed", {
+      source,
+      cacheKey: key,
+      error: serializeError(error),
+    });
     const stale = getMemoryCache<T>(`${key}:stale`);
     if (stale) {
       return { status: "stale", data: stale };
@@ -146,7 +153,10 @@ async function getEdgeCachedQuote(
         quote: withFreshMeta(parsed.quote, ttlSeconds),
       };
     }
-  } catch {
+  } catch (error) {
+    console.warn("edge_cache_parse_failed", {
+      error: serializeError(error),
+    });
     return null;
   }
 
@@ -195,9 +205,9 @@ export async function quoteHandler(req: Request, env: Env): Promise<Response> {
   }
 
   const [spotResult, fxResult, retailResult] = await Promise.all([
-    fetchWithFallback<SpotResult>("spot:latest", quoteTtlSeconds, () => fetchSpotGold()),
-    fetchWithFallback<FxResult>("fx:latest", fxCacheTtlSeconds, () => fetchUsdVndRate(env)),
-    fetchWithFallback<RetailResult>(`retail:${normalizedBrand}:${city ?? "-"}`, quoteTtlSeconds, () =>
+    fetchWithFallback<SpotResult>("spot", "spot:latest", quoteTtlSeconds, () => fetchSpotGold()),
+    fetchWithFallback<FxResult>("fx", "fx:latest", fxCacheTtlSeconds, () => fetchUsdVndRate(env)),
+    fetchWithFallback<RetailResult>("retail", `retail:${normalizedBrand}:${city ?? "-"}`, quoteTtlSeconds, () =>
       fetchRetailPrice(env, normalizedBrand, city),
     ),
   ]);

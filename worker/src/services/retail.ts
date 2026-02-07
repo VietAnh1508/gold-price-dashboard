@@ -2,6 +2,7 @@ import type { Env } from "../types/env";
 import { VNAPPMOB_API_BASE_URL } from "../utils/constants";
 import { fetchWithVnappmobToken } from "./token";
 import { parseFiniteNumber, parseIsoTimestamp } from "../utils/parsing";
+import { UpstreamServiceError } from "../utils/errors";
 
 export interface RetailResult {
   buyVndLuong: number;
@@ -79,7 +80,8 @@ export async function fetchRetailPrice(
   city?: string,
 ): Promise<RetailResult> {
   const fetchedAtIso = new Date().toISOString();
-  const response = await fetchWithVnappmobToken(env, "gold", `${VNAPPMOB_API_BASE_URL}/api/v2/gold/${brand}`, {
+  const requestUrl = `${VNAPPMOB_API_BASE_URL}/api/v2/gold/${brand}`;
+  const response = await fetchWithVnappmobToken(env, "gold", requestUrl, {
     method: "GET",
     headers: {
       Accept: "application/json",
@@ -87,24 +89,43 @@ export async function fetchRetailPrice(
   });
 
   if (!response.ok) {
-    throw new Error(`vnappmob retail request failed with status ${response.status}`);
+    const body = (await response.text()).slice(0, 300);
+    throw new UpstreamServiceError("vnappmob retail request failed", {
+      service: "vnappmob",
+      operation: "fetchRetailPrice",
+      url: requestUrl,
+      status: response.status,
+      detail: body || undefined,
+    });
   }
 
   const payload = (await response.json()) as VnappmobRetailPayload;
   if (!Array.isArray(payload.results) || payload.results.length === 0) {
-    throw new Error("vnappmob retail response missing results");
+    throw new UpstreamServiceError("vnappmob retail response missing results", {
+      service: "vnappmob",
+      operation: "fetchRetailPrice",
+      url: requestUrl,
+    });
   }
 
   const firstRecord = payload.results[0];
   if (!firstRecord || typeof firstRecord !== "object") {
-    throw new Error("vnappmob retail response missing record");
+    throw new UpstreamServiceError("vnappmob retail response missing record", {
+      service: "vnappmob",
+      operation: "fetchRetailPrice",
+      url: requestUrl,
+    });
   }
 
   const record = firstRecord as Record<string, unknown>;
   const parsedPrice = brand === "sjc" ? parseSjc(record) : parseCityBrand(record, city);
 
   if (!parsedPrice) {
-    throw new Error(`vnappmob retail response missing valid buy/sell for ${brand}`);
+    throw new UpstreamServiceError(`vnappmob retail response missing valid buy/sell for ${brand}`, {
+      service: "vnappmob",
+      operation: "fetchRetailPrice",
+      url: requestUrl,
+    });
   }
 
   return {
