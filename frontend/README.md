@@ -51,6 +51,17 @@ VITE_API_PROXY_TARGET=http://127.0.0.1:8787
 
 You can place this in `frontend/.env.local` for local-only config.
 
+### Production integration (Cloudflare Pages + Service Binding)
+
+For production on Cloudflare Pages, use Pages Functions with a Service Binding.
+
+- This repo includes `functions/api/[[path]].ts`, which forwards `/api/*` requests to a bound Worker.
+- Configure in Pages project settings:
+  - `Settings` -> `Bindings` -> `Add binding` -> `Service binding`
+  - Variable name: `GOLD_API`
+  - Service: `gold-price-service` (or your deployed Worker name)
+- Keep frontend API calls as relative paths (for example: `/api/quote?retailBrand=sjc`).
+
 ## Scripts
 
 - `pnpm dev`: start local dev server
