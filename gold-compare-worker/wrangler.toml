@@ -1,0 +1,14 @@
+name = "gold-compare-service"
+main = "src/index.ts"
+compatibility_date = "2026-02-07"
+
+[observability]
+enabled = true
+
+[[kv_namespaces]]
+binding = "TOKENS_KV"
+id = "REPLACE_WITH_KV_ID"
+
+[vars]
+QUOTE_CACHE_TTL_SECONDS = "120"
+FX_CACHE_TTL_SECONDS = "21600"
