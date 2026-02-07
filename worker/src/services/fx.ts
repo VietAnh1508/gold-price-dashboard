@@ -1,4 +1,6 @@
 import type { Env } from "../types/env";
+import { VNAPPMOB_API_BASE_URL } from "../utils/constants";
+import { fetchWithVnappmobToken } from "./token";
 import { parseFiniteNumber, parseIsoTimestamp } from "../utils/parsing";
 
 export interface FxResult {
@@ -6,7 +8,6 @@ export interface FxResult {
   providerTimestamp: string;
 }
 
-const VNAPPMOB_API_BASE_URL = "https://api.vnappmob.com";
 const VNAPPMOB_EXCHANGE_RATE_PATH = "/api/v2/exchange_rate/vcb?currency=USD";
 
 interface VnappmobExchangeRatePayload {
@@ -53,13 +54,17 @@ function parseUsdVndRate(record: Record<string, unknown>): number | null {
 
 export async function fetchUsdVndRate(env: Env): Promise<FxResult> {
   const fetchedAtIso = new Date().toISOString();
-  const response = await fetch(`${VNAPPMOB_API_BASE_URL}${VNAPPMOB_EXCHANGE_RATE_PATH}`, {
+  const response = await fetchWithVnappmobToken(
+    env,
+    "exchange_rate",
+    `${VNAPPMOB_API_BASE_URL}${VNAPPMOB_EXCHANGE_RATE_PATH}`,
+    {
     method: "GET",
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${env.VNAPPMOB_API_KEY}`,
+      headers: {
+        Accept: "application/json",
+      },
     },
-  });
+  );
 
   if (!response.ok) {
     throw new Error(`vnappmob fx request failed with status ${response.status}`);

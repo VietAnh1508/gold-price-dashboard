@@ -1,4 +1,6 @@
 import type { Env } from "../types/env";
+import { VNAPPMOB_API_BASE_URL } from "../utils/constants";
+import { fetchWithVnappmobToken } from "./token";
 import { parseFiniteNumber, parseIsoTimestamp } from "../utils/parsing";
 
 export interface RetailResult {
@@ -6,8 +8,6 @@ export interface RetailResult {
   sellVndLuong: number;
   asOf: string;
 }
-
-const VNAPPMOB_API_BASE_URL = "https://api.vnappmob.com";
 
 interface VnappmobRetailPayload {
   results?: unknown;
@@ -79,11 +79,10 @@ export async function fetchRetailPrice(
   city?: string,
 ): Promise<RetailResult> {
   const fetchedAtIso = new Date().toISOString();
-  const response = await fetch(`${VNAPPMOB_API_BASE_URL}/api/v2/gold/${brand}`, {
+  const response = await fetchWithVnappmobToken(env, "gold", `${VNAPPMOB_API_BASE_URL}/api/v2/gold/${brand}`, {
     method: "GET",
     headers: {
       Accept: "application/json",
-      Authorization: `Bearer ${env.VNAPPMOB_API_KEY}`,
     },
   });
 
