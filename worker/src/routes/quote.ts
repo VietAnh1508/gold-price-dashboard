@@ -1,5 +1,18 @@
 import type { QuoteResponse } from "../types/contracts";
 import { getMemoryCache, setMemoryCache } from "../cache/memory";
+import {
+  recordQuoteCacheHit,
+  recordQuoteCacheMiss,
+  recordQuoteRequest,
+  recordSourceDataCacheHit,
+  recordSourceDataCacheMiss,
+  recordStaleServe,
+  recordUpstreamAttempt,
+  recordUpstreamFailure,
+  recordUpstreamStatusSnapshot,
+  recordUpstreamSuccess,
+  type UpstreamSource,
+} from "../observability/state";
 import { fetchUsdVndRate, type FxResult } from "../services/fx";
 import { fetchRetailPrice, type RetailResult } from "../services/retail";
 import { fetchSpotGold, type SpotResult } from "../services/spot";
@@ -104,22 +117,27 @@ function withFreshMeta(quote: QuoteResponse, ttlSeconds: number): QuoteResponse 
 }
 
 async function fetchWithFallback<T>(
-  source: "spot" | "fx" | "retail",
+  source: UpstreamSource,
   key: string,
   ttlSeconds: number,
   fetcher: () => Promise<T>,
 ): Promise<SourceOutcome<T>> {
   const fresh = getMemoryCache<T>(key);
   if (fresh) {
+    recordSourceDataCacheHit(source);
     return { status: "ok", data: fresh };
   }
+  recordSourceDataCacheMiss(source);
+  recordUpstreamAttempt(source);
 
   try {
     const fetched = await fetcher();
     setMemoryCache(key, fetched, ttlSeconds);
     setMemoryCache(`${key}:stale`, fetched, STALE_DATA_TTL_SECONDS);
+    recordUpstreamSuccess(source);
     return { status: "ok", data: fetched };
   } catch (error) {
+    recordUpstreamFailure(source, error);
     console.error("upstream_fetch_failed", {
       source,
       cacheKey: key,
@@ -127,6 +145,7 @@ async function fetchWithFallback<T>(
     });
     const stale = getMemoryCache<T>(`${key}:stale`);
     if (stale) {
+      recordStaleServe(source);
       return { status: "stale", data: stale };
     }
     return { status: "error", data: null };
@@ -184,6 +203,7 @@ async function setEdgeCachedQuote(
 }
 
 export async function quoteHandler(req: Request, env: Env): Promise<Response> {
+  recordQuoteRequest();
   const url = new URL(req.url);
   const brand = (url.searchParams.get("retailBrand") ?? DEFAULT_BRAND).toLowerCase();
   const city = url.searchParams.get("retailCity") ?? undefined;
@@ -199,15 +219,22 @@ export async function quoteHandler(req: Request, env: Env): Promise<Response> {
   const quoteCacheKey = `quote:${normalizedBrand}:${city ?? "-"}`;
   const cachedQuote = getMemoryCache<CachedQuote>(quoteCacheKey);
   if (cachedQuote) {
-    return Response.json(withFreshMeta(cachedQuote.quote, quoteTtlSeconds));
+    recordQuoteCacheHit("memory");
+    const responseBody = withFreshMeta(cachedQuote.quote, quoteTtlSeconds);
+    recordUpstreamStatusSnapshot(responseBody.status);
+    return Response.json(responseBody);
   }
+  recordQuoteCacheMiss("memory");
 
   const edgeCacheKey = buildEdgeCacheKey(req, normalizedBrand, city);
   const edgeCachedQuote = await getEdgeCachedQuote(edgeCache, edgeCacheKey, quoteTtlSeconds);
   if (edgeCachedQuote) {
+    recordQuoteCacheHit("edge");
     setMemoryCache(quoteCacheKey, edgeCachedQuote, quoteTtlSeconds);
+    recordUpstreamStatusSnapshot(edgeCachedQuote.quote.status);
     return Response.json(edgeCachedQuote.quote);
   }
+  recordQuoteCacheMiss("edge");
 
   const [spotResult, fxResult, retailResult] = await Promise.all([
     fetchWithFallback<SpotResult>("spot", "spot:latest", quoteTtlSeconds, () => fetchSpotGold()),
@@ -257,6 +284,7 @@ export async function quoteHandler(req: Request, env: Env): Promise<Response> {
   }
 
   const responseBody = withFreshMeta(quote, quoteTtlSeconds);
+  recordUpstreamStatusSnapshot(responseBody.status);
   const allCriticalMissing =
     responseBody.spot.price_usd_ozt === null &&
     responseBody.fx.rate === null &&
@@ -267,6 +295,14 @@ export async function quoteHandler(req: Request, env: Env): Promise<Response> {
     setMemoryCache(quoteCacheKey, { quote }, quoteTtlSeconds);
     await setEdgeCachedQuote(edgeCache, edgeCacheKey, { quote }, quoteTtlSeconds);
   }
+
+  console.info("quote_request_completed", {
+    brand: normalizedBrand,
+    city: city ?? null,
+    statusCode: allCriticalMissing ? 503 : 200,
+    upstreamStatus: responseBody.status,
+    dataFreshnessSeconds: responseBody.meta.dataFreshnessSeconds,
+  });
 
   return Response.json(responseBody, { status: allCriticalMissing ? 503 : 200 });
 }

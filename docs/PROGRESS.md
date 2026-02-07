@@ -9,7 +9,7 @@ This file captures ongoing work derived from `REQUIREMENT.md`. Update the status
 - [x] A4: Manage VNAppMob Bearer token lifecycle via KV/Durable Object with refresh + retry logic.
 - [x] A5: Fetch USD/VND FX rate (primary VNAppMob, fallback allowed) and flag stale data.
 - [x] A6: Cache upstream calls (spot, retail, FX) per TTL guidance and report `dataFreshnessSeconds`.
-- [ ] A7: Instrument logging plus `/api/health` and `/api/debug` endpoints for observability.
+- [x] A7: Instrument logging plus `/api/health` and `/api/debug` endpoints for observability.
 
 ## Epic B – React “Gold Compare Dashboard”
 - [ ] B1: Show spot, FX, computed, retail buy/sell, and premium with freshness indicators and formatting.
@@ -33,5 +33,6 @@ This file captures ongoing work derived from `REQUIREMENT.md`. Update the status
 - February 7, 2026: A5 reliability update in `worker/src/services/fx.ts` adds provider fallback order (`vcb` -> `tcb` -> `ctg` -> `bid` -> `stb` -> `sbv`) so missing VCB values no longer fail FX immediately; the service now returns the first valid USD/VND rate and aggregates failure context when all providers fail.
 - February 7, 2026: A5 UX update adds friendly FX provider names (for example `vcb` -> `Vietcombank`, `tcb` -> `Techcombank`) to `FxResult` and `/api/quote` as `fx.providerName` for direct UI rendering.
 - February 7, 2026: A6 implemented in `worker/src/routes/quote.ts` (final normalized quote cache via in-memory + Cloudflare Cache API, source-level upstream throttling with short TTL for spot/retail and configurable long TTL for FX via `FX_CACHE_TTL_SECONDS`, and `meta.dataFreshnessSeconds` recalculation on cached responses).
+- February 7, 2026: A7 implemented with runtime observability state in `worker/src/observability/state.ts`; `worker/src/routes/quote.ts` now logs request outcomes, records upstream fetch failures with context, and tracks quote/source cache hit-miss and stale fallback counters. `worker/src/routes/health.ts` returns live `upstreamStatus` plus worker start/last quote times, and `worker/src/routes/debug.ts` (protected by `x-debug-secret`) exposes counters, last fetch timestamps, and last serialized upstream errors.
 - Validation note: `pnpm -C worker run typecheck` passes as of February 7, 2026.
 - Update this file each sprint slice (e.g., tick boxes, note blockers, add new rows if scope grows).
