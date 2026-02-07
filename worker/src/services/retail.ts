@@ -5,6 +5,7 @@ import { parseFiniteNumber, parseIsoTimestamp } from "../utils/parsing";
 import { UpstreamServiceError } from "../utils/errors";
 
 export interface RetailResult {
+  sourceBrand: RetailBrand;
   buyVndLuong: number;
   sellVndLuong: number;
   asOf: string;
@@ -15,6 +16,7 @@ interface VnappmobRetailPayload {
 }
 
 type RetailBrand = "sjc" | "doji" | "pnj";
+const RETAIL_PROVIDER_PRIORITY: readonly RetailBrand[] = ["sjc", "doji", "pnj"];
 
 function parseAsOf(record: Record<string, unknown>, fetchedAtIso: string): string {
   const candidates = [
@@ -80,56 +82,53 @@ export async function fetchRetailPrice(
   city?: string,
 ): Promise<RetailResult> {
   const fetchedAtIso = new Date().toISOString();
-  const requestUrl = `${VNAPPMOB_API_BASE_URL}/api/v2/gold/${brand}`;
-  const response = await fetchWithVnappmobToken(env, "gold", requestUrl, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
+  const providerOrder = [brand, ...RETAIL_PROVIDER_PRIORITY.filter((candidate) => candidate !== brand)];
+  const failureDetails: string[] = [];
+
+  for (const provider of providerOrder) {
+    const requestUrl = `${VNAPPMOB_API_BASE_URL}/api/v2/gold/${provider}`;
+    const response = await fetchWithVnappmobToken(env, "gold", requestUrl, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const body = (await response.text()).slice(0, 150);
+      failureDetails.push(`${provider}:http_${response.status}${body ? `:${body}` : ""}`);
+      continue;
+    }
+
+    const payload = (await response.json()) as VnappmobRetailPayload;
+    if (!Array.isArray(payload.results) || payload.results.length === 0) {
+      failureDetails.push(`${provider}:missing_results`);
+      continue;
+    }
+
+    const firstRecord = payload.results[0];
+    if (!firstRecord || typeof firstRecord !== "object") {
+      failureDetails.push(`${provider}:missing_record`);
+      continue;
+    }
+
+    const record = firstRecord as Record<string, unknown>;
+    const parsedPrice = provider === "sjc" ? parseSjc(record) : parseCityBrand(record, city);
+    if (!parsedPrice) {
+      failureDetails.push(`${provider}:missing_valid_buy_sell`);
+      continue;
+    }
+
+    return {
+      sourceBrand: provider,
+      ...parsedPrice,
+      asOf: parseAsOf(record, fetchedAtIso),
+    };
+  }
+
+  throw new UpstreamServiceError("vnappmob retail request failed for all providers", {
+    service: "vnappmob",
+    operation: "fetchRetailPrice",
+    detail: failureDetails.slice(0, 8).join("; "),
   });
-
-  if (!response.ok) {
-    const body = (await response.text()).slice(0, 300);
-    throw new UpstreamServiceError("vnappmob retail request failed", {
-      service: "vnappmob",
-      operation: "fetchRetailPrice",
-      url: requestUrl,
-      status: response.status,
-      detail: body || undefined,
-    });
-  }
-
-  const payload = (await response.json()) as VnappmobRetailPayload;
-  if (!Array.isArray(payload.results) || payload.results.length === 0) {
-    throw new UpstreamServiceError("vnappmob retail response missing results", {
-      service: "vnappmob",
-      operation: "fetchRetailPrice",
-      url: requestUrl,
-    });
-  }
-
-  const firstRecord = payload.results[0];
-  if (!firstRecord || typeof firstRecord !== "object") {
-    throw new UpstreamServiceError("vnappmob retail response missing record", {
-      service: "vnappmob",
-      operation: "fetchRetailPrice",
-      url: requestUrl,
-    });
-  }
-
-  const record = firstRecord as Record<string, unknown>;
-  const parsedPrice = brand === "sjc" ? parseSjc(record) : parseCityBrand(record, city);
-
-  if (!parsedPrice) {
-    throw new UpstreamServiceError(`vnappmob retail response missing valid buy/sell for ${brand}`, {
-      service: "vnappmob",
-      operation: "fetchRetailPrice",
-      url: requestUrl,
-    });
-  }
-
-  return {
-    ...parsedPrice,
-    asOf: parseAsOf(record, fetchedAtIso),
-  };
 }

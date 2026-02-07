@@ -233,6 +233,7 @@ export async function quoteHandler(req: Request, env: Env): Promise<Response> {
     quote.fx.providerTimestamp = fxResult.data.providerTimestamp;
   }
   if (retailResult.data) {
+    quote.retail.provider = `vnappmob:${retailResult.data.sourceBrand}`;
     quote.retail.buy_vnd_luong = retailResult.data.buyVndLuong;
     quote.retail.sell_vnd_luong = retailResult.data.sellVndLuong;
     quote.retail.asOf = retailResult.data.asOf;
