@@ -7,7 +7,7 @@ enabled = true
 
 [[kv_namespaces]]
 binding = "TOKENS_KV"
-id = "REPLACE_WITH_KV_ID"
+id = "2b7fe157922a44198025cc6fd6a9e288"
 
 [vars]
 QUOTE_CACHE_TTL_SECONDS = "120"
