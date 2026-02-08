@@ -1,6 +1,7 @@
 import { useCallback, type ChangeEvent } from "react";
 import { useQuote } from "./hooks/useQuote";
 import type { RetailBrand } from "./types";
+import { InfoCard } from "./components/InfoCard";
 import {
   formatPct,
   formatTimestamp,
@@ -28,6 +29,7 @@ function App() {
   );
 
   const badge = getFreshnessBadge(quote);
+  const effectiveRetailBrand = quote?.retail.brand ?? retailBrand;
   const computedSpotFormula = quote
     ? `Formula: Spot × (${quote.computed.luong_grams} / ${quote.computed.ozt_grams}) × USD/VND × (1 + ${quote.computed.conversion_premium_pct}%)`
     : "Formula: Spot × (37.5 / 31.1034768) × USD/VND × (1 + 3%)";
@@ -38,10 +40,7 @@ function App() {
   return (
     <main className="mx-auto grid min-h-screen w-full max-w-6xl gap-4 bg-slate-100 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
       <section className="grid gap-4 md:grid-cols-3">
-        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Spot Gold (USD/oz)
-          </p>
+        <InfoCard title="Spot Gold (USD/oz)">
           <p className="mt-2 text-3xl font-bold tracking-tight">
             {isLoading
               ? "Loading..."
@@ -57,24 +56,18 @@ function App() {
               Updated {quote?.meta.dataFreshnessSeconds ?? "--"}s ago
             </span>
           </div>
-        </article>
+        </InfoCard>
 
-        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            USD/VND Rate
-          </p>
+        <InfoCard title="USD/VND Rate">
           <p className="mt-2 text-3xl font-bold tracking-tight">
             {formatVnd(quote?.fx.rate ?? null)}
           </p>
           <p className="mt-4 text-xs text-slate-600">
             Last updated: {formatTimestamp(quote?.meta.serverTime)}
           </p>
-        </article>
+        </InfoCard>
 
-        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Computed Spot (VND/lượng)
-          </p>
+        <InfoCard title="Computed Spot (VND/lượng)">
           <p className="mt-2 text-3xl font-bold tracking-tight">
             {formatVnd(quote?.computed.spot_vnd_luong ?? null)}
           </p>
@@ -88,7 +81,7 @@ function App() {
           <p className="text-xs text-slate-500">
             {conversionPremiumLabel}% = spot conversion premium
           </p>
-        </article>
+        </InfoCard>
       </section>
 
       {error ? (
@@ -98,22 +91,16 @@ function App() {
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-2">
-        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Retail Prices ({retailBrand.toUpperCase()})
-          </p>
+        <InfoCard title={`Retail Prices (${effectiveRetailBrand.toUpperCase()})`}>
           <p className="mt-2 text-base text-slate-800">
             Buy: {formatVnd(quote?.retail.buy_vnd_luong ?? null)}
           </p>
           <p className="mt-1 text-base text-slate-800">
             Sell: {formatVnd(quote?.retail.sell_vnd_luong ?? null)}
           </p>
-        </article>
+        </InfoCard>
 
-        <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Premium vs Spot
-          </p>
+        <InfoCard title="Premium vs Spot">
           <p className="mt-2 text-base text-slate-800">
             Buy premium: {formatVnd(quote?.comparison.premium_buy_vnd ?? null)}{" "}
             ({formatPct(quote?.comparison.premium_buy_pct ?? null)})
@@ -123,7 +110,7 @@ function App() {
             {formatVnd(quote?.comparison.premium_sell_vnd ?? null)} (
             {formatPct(quote?.comparison.premium_sell_pct ?? null)})
           </p>
-        </article>
+        </InfoCard>
       </section>
 
       <footer className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
