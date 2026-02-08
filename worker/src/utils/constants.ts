@@ -1,5 +1,6 @@
 export const LUONG_GRAMS = 37.5;
 export const OZT_GRAMS = 31.1034768;
+export const SPOT_CONVERSION_PREMIUM_PCT = 3;
 export const VNAPPMOB_API_BASE_URL = "https://api.vnappmob.com";
 
 export const DEFAULT_BRAND = "doji" as const;

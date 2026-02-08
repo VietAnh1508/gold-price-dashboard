@@ -17,7 +17,13 @@ import { fetchUsdVndRate, type FxResult } from "../services/fx";
 import { fetchRetailPrice, type RetailResult } from "../services/retail";
 import { fetchSpotGold, type SpotResult } from "../services/spot";
 import type { Env } from "../types/env";
-import { DEFAULT_BRAND, LUONG_GRAMS, OZT_GRAMS, SUPPORTED_BRANDS } from "../utils/constants";
+import {
+  DEFAULT_BRAND,
+  LUONG_GRAMS,
+  OZT_GRAMS,
+  SPOT_CONVERSION_PREMIUM_PCT,
+  SUPPORTED_BRANDS,
+} from "../utils/constants";
 import { serializeError } from "../utils/errors";
 
 const DEFAULT_QUOTE_TTL_SECONDS = 120;
@@ -63,6 +69,7 @@ function createBaseQuote(brand: "sjc" | "doji" | "pnj", ttlSeconds: number): Quo
     computed: {
       luong_grams: LUONG_GRAMS,
       ozt_grams: OZT_GRAMS,
+      conversion_premium_pct: SPOT_CONVERSION_PREMIUM_PCT,
       spot_vnd_luong: null,
     },
     retail: {
@@ -268,8 +275,12 @@ export async function quoteHandler(req: Request, env: Env): Promise<Response> {
   }
 
   if (quote.spot.price_usd_ozt !== null && quote.fx.rate !== null) {
+    const premiumMultiplier = 1 + quote.computed.conversion_premium_pct / 100;
     quote.computed.spot_vnd_luong =
-      quote.spot.price_usd_ozt * (quote.computed.luong_grams / quote.computed.ozt_grams) * quote.fx.rate;
+      quote.spot.price_usd_ozt *
+      (quote.computed.luong_grams / quote.computed.ozt_grams) *
+      quote.fx.rate *
+      premiumMultiplier;
   }
 
   if (quote.computed.spot_vnd_luong !== null) {

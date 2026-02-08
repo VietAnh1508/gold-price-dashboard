@@ -17,8 +17,10 @@ So I can quickly compare global spot vs local VN retail whenever I open the page
 - Conversion formula:
 
 ```text
-spot_vnd_luong = spot_usd_ozt × (37.5 / 31.1034768) × usd_vnd
+spot_vnd_luong = spot_usd_ozt × (37.5 / 31.1034768) × usd_vnd × (1 + 0.03)
 ```
+
+- For simplicity, use a fixed conversion premium of `3%`.
 
 - FX source (USD→VND):
   - Primary: VNAppMob exchange rate API v2 (also Bearer auth).
@@ -64,6 +66,7 @@ As a frontend, I want a single endpoint that returns spot + VN retail + computed
   "computed": {
     "luong_grams": 37.5,
     "ozt_grams": 31.1034768,
+    "conversion_premium_pct": 3,
     "spot_vnd_luong": 60650000.12
   },
   "retail": {

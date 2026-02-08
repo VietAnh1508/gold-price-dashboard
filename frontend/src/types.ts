@@ -24,6 +24,7 @@ export interface QuoteResponse {
   computed: {
     luong_grams: number
     ozt_grams: number
+    conversion_premium_pct: number
     spot_vnd_luong: number | null
   }
   retail: {

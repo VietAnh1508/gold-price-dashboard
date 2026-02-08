@@ -28,6 +28,12 @@ function App() {
   );
 
   const badge = getFreshnessBadge(quote);
+  const computedSpotFormula = quote
+    ? `Formula: Spot × (${quote.computed.luong_grams} / ${quote.computed.ozt_grams}) × USD/VND × (1 + ${quote.computed.conversion_premium_pct}%)`
+    : "Formula: Spot × (37.5 / 31.1034768) × USD/VND × (1 + 3%)";
+  const luongGramsLabel = quote?.computed.luong_grams ?? 37.5;
+  const oztGramsLabel = quote?.computed.ozt_grams ?? 31.1034768;
+  const conversionPremiumLabel = quote?.computed.conversion_premium_pct ?? 3;
 
   return (
     <main className="mx-auto grid min-h-screen w-full max-w-6xl gap-4 bg-slate-100 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
@@ -72,6 +78,16 @@ function App() {
           <p className="mt-2 text-3xl font-bold tracking-tight">
             {formatVnd(quote?.computed.spot_vnd_luong ?? null)}
           </p>
+          <p className="mt-2 text-xs text-slate-600">{computedSpotFormula}</p>
+          <p className="mt-2 text-xs text-slate-500">
+            {luongGramsLabel} = grams/lượng
+          </p>
+          <p className="text-xs text-slate-500">
+            {oztGramsLabel} = grams/troy ounce (ozt)
+          </p>
+          <p className="text-xs text-slate-500">
+            {conversionPremiumLabel}% = spot conversion premium
+          </p>
         </article>
       </section>
 
@@ -103,7 +119,8 @@ function App() {
             ({formatPct(quote?.comparison.premium_buy_pct ?? null)})
           </p>
           <p className="mt-1 text-base text-slate-800">
-            Sell premium: {formatVnd(quote?.comparison.premium_sell_vnd ?? null)} (
+            Sell premium:{" "}
+            {formatVnd(quote?.comparison.premium_sell_vnd ?? null)} (
             {formatPct(quote?.comparison.premium_sell_pct ?? null)})
           </p>
         </article>
