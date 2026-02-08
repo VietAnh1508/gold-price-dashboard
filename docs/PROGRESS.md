@@ -14,7 +14,7 @@ This file captures ongoing work derived from `REQUIREMENT.md`. Update the status
 ## Epic B – React “Gold Compare Dashboard”
 - [x] B1: Show spot, FX, computed, retail buy/sell, and premium with freshness indicators and formatting.
 - [ ] B2: Implement manual refresh button (auto-refresh optional toggle).
-- [ ] B3: Surface stale/error states per provider and handle partial data without crashing.
+- [x] B3: Surface stale/error states per provider and handle partial data without crashing.
 - [ ] B4: Add configuration panel for overriding USD/VND, lượng grams, and retail reference.
 
 ## Non-functional requirements & DoD
@@ -36,4 +36,5 @@ This file captures ongoing work derived from `REQUIREMENT.md`. Update the status
 - February 7, 2026: A7 implemented with runtime observability state in `worker/src/observability/state.ts`; `worker/src/routes/quote.ts` now logs request outcomes, records upstream fetch failures with context, and tracks quote/source cache hit-miss and stale fallback counters. `worker/src/routes/health.ts` returns live `upstreamStatus` plus worker start/last quote times, and `worker/src/routes/debug.ts` (protected by `x-debug-secret`) exposes counters, last fetch timestamps, and last serialized upstream errors.
 - Validation note: `pnpm -C worker run typecheck` passes as of February 7, 2026.
 - February 7, 2026: B1 implemented in `frontend/src/App.tsx` (initial `/api/quote` fetch on first load, live rendering for spot/FX/computed/retail/comparison fields, USD/VND/percent formatting, freshness badge from quote status/TTL, and manual refresh button wiring).
+- February 8, 2026: B3 implemented in `frontend/src/App.tsx` (provider-specific UI states for `status.spot = error` and `status.retail = stale|error`, continued rendering under partial data, and explicit `N/A` premium output with guidance when computed inputs are unavailable).
 - Update this file each sprint slice (e.g., tick boxes, note blockers, add new rows if scope grows).

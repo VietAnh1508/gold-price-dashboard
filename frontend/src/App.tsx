@@ -10,6 +10,14 @@ import {
 } from "./utils/format";
 import { getFreshnessBadge } from "./utils/freshness";
 
+function formatPremiumRow(valueVnd: number | null, valuePct: number | null): string {
+  if (valueVnd === null || valuePct === null) {
+    return "N/A";
+  }
+
+  return `${formatVnd(valueVnd)} (${formatPct(valuePct)})`;
+}
+
 function App() {
   const {
     retailBrand,
@@ -30,6 +38,10 @@ function App() {
 
   const badge = getFreshnessBadge(quote);
   const effectiveRetailBrand = quote?.retail.brand ?? retailBrand;
+  const isSpotError = quote?.status.spot === "error";
+  const isRetailStale = quote?.status.retail === "stale";
+  const isRetailError = quote?.status.retail === "error";
+  const isComputedReady = quote?.computed.spot_vnd_luong !== null;
   const computedSpotFormula = quote
     ? `Formula: Spot × (${quote.computed.luong_grams} / ${quote.computed.ozt_grams}) × USD/VND × (1 + ${quote.computed.conversion_premium_pct}%)`
     : "Formula: Spot × (37.5 / 31.1034768) × USD/VND × (1 + 3%)";
@@ -46,6 +58,11 @@ function App() {
               ? "Loading..."
               : formatUsd(quote?.spot.price_usd_ozt ?? null)}
           </p>
+          {isSpotError ? (
+            <p className="mt-2 text-xs font-medium text-red-700">
+              Spot source error. Values may be stale or unavailable.
+            </p>
+          ) : null}
           <div className="mt-4 flex items-center gap-2">
             <span
               className={`rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${badge.className}`}
@@ -92,6 +109,16 @@ function App() {
 
       <section className="grid gap-4 md:grid-cols-2">
         <InfoCard title={`Retail Prices (${effectiveRetailBrand.toUpperCase()})`}>
+          {isRetailStale ? (
+            <p className="mt-2 inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-amber-800">
+              Retail stale
+            </p>
+          ) : null}
+          {isRetailError ? (
+            <p className="mt-2 text-xs font-medium text-red-700">
+              Retail source error. Showing unavailable values.
+            </p>
+          ) : null}
           <p className="mt-2 text-base text-slate-800">
             Buy: {formatVnd(quote?.retail.buy_vnd_luong ?? null)}
           </p>
@@ -102,14 +129,26 @@ function App() {
 
         <InfoCard title="Premium vs Spot">
           <p className="mt-2 text-base text-slate-800">
-            Buy premium: {formatVnd(quote?.comparison.premium_buy_vnd ?? null)}{" "}
-            ({formatPct(quote?.comparison.premium_buy_pct ?? null)})
+            Buy premium: {isComputedReady
+              ? formatPremiumRow(
+                  quote?.comparison.premium_buy_vnd ?? null,
+                  quote?.comparison.premium_buy_pct ?? null,
+                )
+              : "N/A"}
           </p>
           <p className="mt-1 text-base text-slate-800">
-            Sell premium:{" "}
-            {formatVnd(quote?.comparison.premium_sell_vnd ?? null)} (
-            {formatPct(quote?.comparison.premium_sell_pct ?? null)})
+            Sell premium: {isComputedReady
+              ? formatPremiumRow(
+                  quote?.comparison.premium_sell_vnd ?? null,
+                  quote?.comparison.premium_sell_pct ?? null,
+                )
+              : "N/A"}
           </p>
+          {!isComputedReady ? (
+            <p className="mt-2 text-xs text-slate-600">
+              Premium requires both spot and FX inputs.
+            </p>
+          ) : null}
         </InfoCard>
       </section>
 
